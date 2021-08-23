@@ -1,6 +1,4 @@
-# Cobalt Strike Payload Generators
-
-It is designed to help quickly create payloads for testing
+# Cobalt Strike Payload Generator
 
 This aggressor script builds all stageless payload types for each current listener and optionally hosts the payloads on the HTTP server
 
